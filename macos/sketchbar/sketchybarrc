@@ -1,0 +1,110 @@
+#!/usr/bin/env sh
+
+PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
+MODE_PLUGIN="$PLUGIN_DIR/skhd_mode.sh"
+SPACE_PLUGIN="$PLUGIN_DIR/update_spaces.sh"
+SPACES_PER_DISPLAY="${YABAI_SPACES_PER_DISPLAY:-10}"
+MAX_DISPLAYS="${SKETCHYBAR_MAX_DISPLAYS:-6}"
+
+sketchybar --remove skhd.mode >/dev/null 2>&1 || true
+sketchybar --remove spaces.observer >/dev/null 2>&1 || true
+display=1
+while [ "$display" -le "$MAX_DISPLAYS" ]; do
+    sketchybar --remove "display.$display" >/dev/null 2>&1 || true
+    slot=1
+    while [ "$slot" -le "$SPACES_PER_DISPLAY" ]; do
+        sketchybar --remove "space.d${display}s${slot}" >/dev/null 2>&1 || true
+        slot=$((slot + 1))
+    done
+    display=$((display + 1))
+done
+
+sketchybar --bar \
+    position=bottom \
+    height=24 \
+    margin=0 \
+    y_offset=0 \
+    padding_left=6 \
+    padding_right=8 \
+    color=0x55111116 \
+    border_color=0x332a2a33 \
+    border_width=1 \
+    corner_radius=0 \
+    shadow=off \
+    sticky=on
+
+sketchybar --default \
+    updates=when_shown \
+    icon.font="SF Pro:Semibold:10.0" \
+    label.font="SF Pro:Semibold:10.0" \
+    icon.padding_left=8 \
+    icon.padding_right=4 \
+    label.padding_left=0 \
+    label.padding_right=8 \
+    background.height=18 \
+    background.corner_radius=5
+
+sketchybar --add item skhd.mode right \
+    --set skhd.mode \
+        icon="MODE" \
+        label="NORMAL" \
+        icon.color=0xff9ca3af \
+        label.color=0xff9ca3af \
+        padding_left=4 \
+        padding_right=4 \
+        background.drawing=on \
+        background.color=0x551f2937
+
+sketchybar --add event yabai_spaces_changed
+
+display=1
+while [ "$display" -le "$MAX_DISPLAYS" ]; do
+    sketchybar --add item "display.$display" left \
+        --set "display.$display" \
+            icon="D$display" \
+            label.drawing=off \
+            drawing=off \
+            icon.color=0xffe5e7eb \
+            icon.padding_left=8 \
+            icon.padding_right=5 \
+            padding_left=6 \
+            padding_right=2 \
+            background.drawing=off
+
+    slot=1
+    while [ "$slot" -le "$SPACES_PER_DISPLAY" ]; do
+        sketchybar --add item "space.d${display}s${slot}" left \
+            --set "space.d${display}s${slot}" \
+                icon="$slot" \
+                label.drawing=off \
+                drawing=off \
+                icon.padding_left=7 \
+                icon.padding_right=7 \
+                padding_left=1 \
+                padding_right=1 \
+                background.drawing=on \
+                background.color=0x332a2a33 \
+                background.border_width=1 \
+                background.border_color=0x00000000 \
+                background.height=18 \
+                background.corner_radius=5
+        slot=$((slot + 1))
+    done
+
+    display=$((display + 1))
+done
+
+sketchybar --add item spaces.observer left \
+    --set spaces.observer \
+        drawing=off \
+        updates=on \
+        script="$SPACE_PLUGIN" \
+    --subscribe spaces.observer space_change display_change yabai_spaces_changed
+
+if [ -x "$MODE_PLUGIN" ]; then
+    "$MODE_PLUGIN" normal
+fi
+
+if [ -x "$SPACE_PLUGIN" ]; then
+    "$SPACE_PLUGIN"
+fi

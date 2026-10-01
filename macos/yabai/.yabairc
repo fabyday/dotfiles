@@ -1,0 +1,131 @@
+#!/usr/bin/env sh
+
+# the scripting-addition must be loaded manually if
+# you are running yabai on macOS Big Sur. Uncomment
+# the following line to have the injection performed
+# when the config is executed during startup.
+#
+# for this to work you must configure sudo such that
+# it will be able to run the command without password
+#
+# see this wiki page for information:
+#  - https://github.com/koekeishiya/yabai/wiki/Installing-yabai-(latest-release)
+#
+# base version ref := v7.1.17
+
+sudo yabai --load-sa
+yabai -m signal --remove yabai_load_sa >/dev/null 2>&1 || true
+yabai -m signal --add label=yabai_load_sa event=dock_did_restart action="sudo yabai --load-sa"
+
+# global settings
+yabai -m config mouse_follows_focus          off
+yabai -m config window_placement             second_child
+yabai -m config window_shadow                on
+yabai -m config split_ratio                  0.50
+yabai -m config auto_balance                 off
+
+# general space settings
+# Keep the space layout as BSP. New windows are stacked onto the focused window
+# by a window_created signal; use skhd insert bindings to split manually.
+yabai -m config layout                       bsp
+yabai -m config top_padding                  8
+yabai -m config bottom_padding               36
+yabai -m config left_padding                 8
+yabai -m config right_padding                8
+yabai -m config window_gap                   8
+yabai -m config external_bar main:0:0
+
+# Keep each connected display provisioned with 10 Mission Control spaces.
+# This runs only on startup/display changes, so it avoids the layout feedback
+# loops caused by high-frequency window movement signals.
+YABAI_ENSURE_SPACES="$HOME/.config/yabai/ensure-display-spaces.sh"
+sh "$YABAI_ENSURE_SPACES"
+
+# space 1: terminals
+yabai -m rule --add app="iTerm2" space=^d1s1
+yabai -m rule --add app="kitty" space=^d1s1
+
+# space 2: rider development
+yabai -m rule --add app="Visual Studio Code.*" space=^d1s2
+yabai -m rule --add app="Visual Studio Code.*" title="Preferences" space=^d1s2 manage=off
+
+# space 3: web
+yabai -m rule --add app="Google Chrome" space=^d1s3
+
+# space 4: VMs
+yabai -m space d1s4 --layout stack
+yabai -m rule --add app="Jump Desktop" space=^d1s4
+yabai -m rule --add app="Jump Desktop" title="Jump Desktop" space=^d1s4 manage=off
+yabai -m rule --add app="Parallels Desktop" title="Control Center" space=^d1s4 manage=off
+yabai -m rule --add app="Parallels Desktop" space=^d1s4
+
+# space 5: stack
+yabai -m space d1s5 --layout stack
+
+# display 2 slot 4: off-stream and out of the way
+yabai -m rule --add app="Discord" space=^d2s4 manage=off
+yabai -m rule --add app="Music" space=^d2s4
+yabai -m rule --add app="OBS Studio" space=^d2s4
+yabai -m rule --add app="OBS.*" space=^d2s4
+yabai -m rule --add app="Podcasts" space=^d2s4
+
+# things which create floating children
+
+yabai -m rule --add app="System Settings" manage=off
+yabai -m rule --add app="BDIH Launcher*" manage=off
+yabai -m rule --add app="Stats" manage=off mouse_follows_focus=off
+yabai -m rule --add app="iStat Menus" manage=off mouse_follows_focus=off
+yabai -m rule --add app="Things" grid=10:3:1:1:1:8 mouse_follows_focus=on sticky=on
+yabai -m rule --add app="choose" manage=off mouse_follows_focus=off
+yabai -m rule --add app="CleanShot X" manage=off mouse_follows_focus=off
+
+# sketchbar
+# yabai -m config external_bar all:40:0
+# yabia -m config menubar_opacity 0.0 # disable menubar
+# this is borders
+borders active_color=0xff00ff00  width=10.0 &
+
+# Show stack indicators through Hammerspoon stackline when available.
+if command -v hs >/dev/null 2>&1; then
+    hs -c 'if stackline then stackline.config:set("appearance.showIcons", true); stackline.applyYabaiPadding() end' >/dev/null 2>&1 || true
+fi
+
+# Automatic window-moving signals are intentionally conservative. New windows
+# are stacked only once, and only into the previously focused window on the same
+# display and space. Other helpers stay manual to avoid layout feedback loops.
+YABAI_AUTO_STACK="$HOME/.config/yabai/auto-stack-window.sh"
+SKHD_FOCUS_GUARD="$HOME/.config/yabai/skhd-focus-guard.sh"
+
+yabai -m signal --remove yabai_auto_stack_focus >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_auto_stack_created >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_skhd_focus_guard >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_skhd_focus_guard_space >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_ensure_display_spaces_added >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_ensure_display_spaces_changed >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_ensure_display_spaces_woke >/dev/null 2>&1 || true
+
+yabai -m signal --add label=yabai_auto_stack_focus event=window_focused action="sh $YABAI_AUTO_STACK save-focus"
+yabai -m signal --add label=yabai_auto_stack_created event=window_created action="sh $YABAI_AUTO_STACK stack-new"
+yabai -m signal --add label=yabai_skhd_focus_guard event=window_focused action="sh $SKHD_FOCUS_GUARD"
+yabai -m signal --add label=yabai_skhd_focus_guard_space event=space_changed action="sh $SKHD_FOCUS_GUARD"
+yabai -m signal --add label=yabai_ensure_display_spaces_added event=display_added action="sh $YABAI_ENSURE_SPACES"
+yabai -m signal --add label=yabai_ensure_display_spaces_changed event=display_changed action="sh $YABAI_ENSURE_SPACES"
+yabai -m signal --add label=yabai_ensure_display_spaces_woke event=system_woke action="sh $YABAI_ENSURE_SPACES"
+
+yabai -m signal --remove yabai_fit_window_created >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_fit_window_resized >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_fit_display_changed >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_fit_display_resized >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_fit_system_woke >/dev/null 2>&1 || true
+
+yabai -m signal --remove yabai_state_save_window_created >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_save_window_destroyed >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_save_window_moved >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_save_window_resized >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_save_window_focused >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_save_space_changed >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_restore_display_added >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_restore_display_removed >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_restore_display_resized >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_restore_display_changed >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_state_restore_system_woke >/dev/null 2>&1 || true
