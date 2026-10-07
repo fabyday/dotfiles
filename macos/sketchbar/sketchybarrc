@@ -1,12 +1,16 @@
 #!/usr/bin/env sh
 
-PLUGIN_DIR="$HOME/.config/sketchybar/plugins"
-MODE_PLUGIN="$PLUGIN_DIR/skhd_mode.sh"
-SPACE_PLUGIN="$PLUGIN_DIR/update_spaces.sh"
+LIB_DIR="$HOME/.config/sketchybar/lib"
+MODE_PLUGIN="$LIB_DIR/skhd_mode.sh"
+MODE_WATCH="$LIB_DIR/skhd_mode_watch.sh"
+SPACE_PLUGIN="$LIB_DIR/update_spaces.sh"
+NEW_WINDOW_MODE="$HOME/.config/yabai/lib/new-window-mode.sh"
 SPACES_PER_DISPLAY="${YABAI_SPACES_PER_DISPLAY:-10}"
 MAX_DISPLAYS="${SKETCHYBAR_MAX_DISPLAYS:-6}"
 
 sketchybar --remove skhd.mode >/dev/null 2>&1 || true
+sketchybar --remove new_window.mode >/dev/null 2>&1 || true
+sketchybar --remove skhd.observer >/dev/null 2>&1 || true
 sketchybar --remove spaces.observer >/dev/null 2>&1 || true
 display=1
 while [ "$display" -le "$MAX_DISPLAYS" ]; do
@@ -44,6 +48,17 @@ sketchybar --default \
     background.height=18 \
     background.corner_radius=5
 
+sketchybar --add item new_window.mode right \
+    --set new_window.mode \
+        icon="NEW" \
+        label="STACK" \
+        icon.color=0xff86efac \
+        label.color=0xff86efac \
+        padding_left=4 \
+        padding_right=4 \
+        background.drawing=on \
+        background.color=0x55166534 
+
 sketchybar --add item skhd.mode right \
     --set skhd.mode \
         icon="MODE" \
@@ -53,7 +68,12 @@ sketchybar --add item skhd.mode right \
         padding_left=4 \
         padding_right=4 \
         background.drawing=on \
-        background.color=0x551f2937
+        background.color=0x551f2937\
+        --move skhd.mode before new_window.mode
+
+
+sketchybar --add item skhd.observer right \
+    --set skhd.observer drawing=off updates=on update_freq=2 script="$MODE_WATCH"
 
 sketchybar --add event yabai_spaces_changed
 
@@ -62,6 +82,8 @@ while [ "$display" -le "$MAX_DISPLAYS" ]; do
     sketchybar --add item "display.$display" left \
         --set "display.$display" \
             icon="D$display" \
+            display="$display" \
+            click_script="yabai -m display --focus $display" \
             label.drawing=off \
             drawing=off \
             icon.color=0xffe5e7eb \
@@ -76,6 +98,7 @@ while [ "$display" -le "$MAX_DISPLAYS" ]; do
         sketchybar --add item "space.d${display}s${slot}" left \
             --set "space.d${display}s${slot}" \
                 icon="$slot" \
+                display="$display" \
                 label.drawing=off \
                 drawing=off \
                 icon.padding_left=7 \
@@ -98,11 +121,20 @@ sketchybar --add item spaces.observer left \
     --set spaces.observer \
         drawing=off \
         updates=on \
+        update_freq=3 \
         script="$SPACE_PLUGIN" \
-    --subscribe spaces.observer space_change display_change yabai_spaces_changed
+    --subscribe spaces.observer space_change display_change space_windows_change yabai_spaces_changed
 
 if [ -x "$MODE_PLUGIN" ]; then
-    "$MODE_PLUGIN" normal
+    "$MODE_PLUGIN" "$(cat "${XDG_CACHE_HOME:-$HOME/.cache}/sketchybar/skhd-mode" 2>/dev/null || printf normal)"
+fi
+
+if [ -x "$NEW_WINDOW_MODE" ]; then
+    "$NEW_WINDOW_MODE" sync
+fi
+
+if [ -x "$MODE_WATCH" ]; then
+    "$MODE_WATCH"
 fi
 
 if [ -x "$SPACE_PLUGIN" ]; then

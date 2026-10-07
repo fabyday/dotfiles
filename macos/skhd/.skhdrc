@@ -4,40 +4,49 @@
 # - default: everyday navigation
 # - window: window placement/actions
 # - resize: resize the focused window
-# - layout: reshape the current BSP/stack layout
+# - relocate: stack windows, mark BSP insertion, choose new-window mode
 # - display: displays and workspaces
 
-cmd + alt + shift - y : yabai --restart-service
+:: default : sh ~/.config/sketchybar/lib/skhd_mode.sh normal
+:: window : sh ~/.config/sketchybar/lib/skhd_mode.sh window
+:: resize : sh ~/.config/sketchybar/lib/skhd_mode.sh resize
+:: relocate : sh ~/.config/sketchybar/lib/skhd_mode.sh relocate
+:: display : sh ~/.config/sketchybar/lib/skhd_mode.sh display; sh ~/.config/yabai/lib/display-space.sh select-display current
 
 
-:: default : sh ~/.config/sketchybar/plugins/skhd_mode.sh normal
-:: window : sh ~/.config/sketchybar/plugins/skhd_mode.sh window
-:: resize : sh ~/.config/sketchybar/plugins/skhd_mode.sh resize
-:: layout : sh ~/.config/sketchybar/plugins/skhd_mode.sh layout
-:: layout_warp : sh ~/.config/sketchybar/plugins/skhd_mode.sh layout_warp
-:: layout_swap : sh ~/.config/sketchybar/plugins/skhd_mode.sh layout_swap
-:: layout_stack : sh ~/.config/sketchybar/plugins/skhd_mode.sh layout_stack
-:: display : sh ~/.config/sketchybar/plugins/skhd_mode.sh display
 
 # mode entry
-cmd + ctrl - u ; window
-cmd + ctrl - i ; resize
-cmd + ctrl - o ; layout
-cmd + ctrl - p ; display
+cmd + alt - u ; window
+cmd + alt - i ; resize
+cmd + alt - o ; relocate
+cmd + alt - p ; display
+cmd + alt - escape ; default
+window < cmd + alt - escape ; default
+resize < cmd + alt - escape ; default
+relocate < cmd + alt - escape ; default
+display < cmd + alt - escape ; default
+display < cmd + alt - p ; default
+
+cmd + alt - y : \
+    if pgrep -x yabai >/dev/null; then \
+        yabai --stop-service; \
+    else \
+        yabai --start-service; \
+    fi
+cmd + alt - r : yabai --restart-service
+
 
 # default: focus and stack navigation
-ctrl - h : sh ~/.config/yabai/focus-direction.sh west
-ctrl - j : sh ~/.config/yabai/focus-direction.sh south
-ctrl - k : sh ~/.config/yabai/focus-direction.sh north
-ctrl - l : sh ~/.config/yabai/focus-direction.sh east
+ctrl - h : yabai -m window --focus west || yabai -m window --focus recent
+ctrl - j : yabai -m window --focus south || yabai -m window --focus recent
+ctrl - k : yabai -m window --focus north || yabai -m window --focus recent
+ctrl - l : yabai -m window --focus east || yabai -m window --focus recent
 
-cmd + shift - w : yabai -m window --focus stack.prev || yabai -m window --focus stack.last
-cmd + shift - e : yabai -m window --focus stack.next || yabai -m window --focus stack.first
-ctrl + alt - f : sh ~/.config/yabai/focus-floating.sh next
-ctrl + alt + shift - f : sh ~/.config/yabai/focus-floating.sh prev
+default, window, resize, relocate, display < cmd + shift - w : yabai -m window --focus stack.prev || yabai -m window --focus stack.last
+default, window, resize, relocate, display < cmd + shift - e : yabai -m window --focus stack.next || yabai -m window --focus stack.first
 
-cmd + alt - g : open -na "Google Chrome"
-cmd + alt - t : open -na "iTerm"
+cmd + fn - g : open -na "Google Chrome"
+cmd + fn - t : open -na "iTerm"
 
 # default: useful global toggles
 shift + alt - b : hs -c 'stackline.config:toggle("appearance.showIcons"); stackline.applyYabaiPadding()'
@@ -57,42 +66,21 @@ resize < shift - l : yabai -m window --resize right:-20:0
 resize < 0 : yabai -m space --balance
 resize < escape ; default
 
-# layout mode: reshape the focused window's place in the BSP/stack tree.
-layout < h : sh ~/.config/yabai/stack-into-direction.sh west
-layout < j : sh ~/.config/yabai/stack-into-direction.sh south
-layout < k : sh ~/.config/yabai/stack-into-direction.sh north
-layout < l : sh ~/.config/yabai/stack-into-direction.sh east
-layout < w ; layout_warp
-layout < s ; layout_swap
-layout < a ; layout_stack
-layout < shift - h : yabai -m window --insert west
-layout < shift - j : yabai -m window --insert south
-layout < shift - k : yabai -m window --insert north
-layout < shift - l : yabai -m window --insert east
-layout < shift - s : yabai -m window --insert stack
-layout < e : yabai -m window --toggle split
-layout < escape ; default
-
-# layout / warp: split a stacked window back into BSP, or warp a tiled window.
-layout_warp < h : sh ~/.config/yabai/stack-into-direction.sh west
-layout_warp < j : sh ~/.config/yabai/stack-into-direction.sh south
-layout_warp < k : sh ~/.config/yabai/stack-into-direction.sh north
-layout_warp < l : sh ~/.config/yabai/stack-into-direction.sh east
-layout_warp < escape ; layout
-
-# layout / swap: exchange the focused window with a directional neighbor.
-layout_swap < h : yabai -m window --swap west
-layout_swap < j : yabai -m window --swap south
-layout_swap < k : yabai -m window --swap north
-layout_swap < l : yabai -m window --swap east
-layout_swap < escape ; layout
-
-# layout / stack: stack the focused window into a directional neighbor.
-layout_stack < h : sh ~/.config/yabai/stack-window-direction.sh west
-layout_stack < j : sh ~/.config/yabai/stack-window-direction.sh south
-layout_stack < k : sh ~/.config/yabai/stack-window-direction.sh north
-layout_stack < l : sh ~/.config/yabai/stack-window-direction.sh east
-layout_stack < escape ; layout
+# relocate mode: stack the focused window onto a directional neighbor.
+# Shift + direction marks the next BSP insertion position instead.
+relocate < h : sh ~/.config/yabai/lib/stack-into-direction.sh west
+relocate < j : sh ~/.config/yabai/lib/stack-into-direction.sh south
+relocate < k : sh ~/.config/yabai/lib/stack-into-direction.sh north
+relocate < l : sh ~/.config/yabai/lib/stack-into-direction.sh east
+relocate < shift - h : yabai -m window --insert west
+relocate < shift - j : yabai -m window --insert south
+relocate < shift - k : yabai -m window --insert north
+relocate < shift - l : yabai -m window --insert east
+relocate < s : yabai -m window --insert stack
+relocate < e : yabai -m window --toggle split
+relocate < shift - s : sh ~/.config/yabai/lib/new-window-mode.sh set stack
+relocate < shift - b : sh ~/.config/yabai/lib/new-window-mode.sh set bsp
+relocate < escape ; default
 
 # window mode: move/swap/stack/toggle focused window
 window < h : yabai -m window --swap west
@@ -122,59 +110,51 @@ window < p : yabai -m window --toggle pip
 window < t : yabai -m window --toggle sticky
 window < x : yabai -m window --toggle shadow
 window < 0 : yabai -m space --balance
+window < 2 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.2
+window < 3 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.3
+window < 5 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.5
+window < 7 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.7
+window < 8 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.8
 window < escape ; default
 
-# display mode: choose a target display, then operate on that display's 1-10 workspace slots
-display < h : sh ~/.config/yabai/display-space.sh select-display prev
-display < l : sh ~/.config/yabai/display-space.sh select-display next
-display < j : yabai -m space --focus prev
-display < k : yabai -m space --focus next
+# display mode: focus spaces/displays or send windows there
+display < h : sh ~/.config/yabai/lib/display-space.sh select-display prev
+display < l : sh ~/.config/yabai/lib/display-space.sh select-display next
+# Each display has its own ten-entry workspace history.
+display < j : sh ~/.config/yabai/lib/space-history.sh prev
+display < k : sh ~/.config/yabai/lib/space-history.sh next
 
-display < shift - h : sh ~/.config/yabai/display-space.sh move-window-display prev
-display < shift - l : sh ~/.config/yabai/display-space.sh move-window-display next
+display < shift - h : sh ~/.config/yabai/lib/display-space.sh move-window-display prev
+display < shift - l : sh ~/.config/yabai/lib/display-space.sh move-window-display next
+display < alt - 1 : sh ~/.config/yabai/lib/display-space.sh move-window-display 1
+display < alt - 2 : sh ~/.config/yabai/lib/display-space.sh move-window-display 2
+display < alt - 3 : sh ~/.config/yabai/lib/display-space.sh move-window-display 3
+display < alt - 4 : sh ~/.config/yabai/lib/display-space.sh move-window-display 4
+display < alt - 5 : sh ~/.config/yabai/lib/display-space.sh move-window-display 5
+display < alt - 6 : sh ~/.config/yabai/lib/display-space.sh move-window-display 6
 display < shift - j : yabai -m window --space prev; yabai -m space --focus prev
 display < shift - k : yabai -m window --space next; yabai -m space --focus next
 
-display < 1 : sh ~/.config/yabai/display-space.sh select-display 1
-display < 2 : sh ~/.config/yabai/display-space.sh select-display 2
-display < 3 : sh ~/.config/yabai/display-space.sh select-display 3
-display < 4 : sh ~/.config/yabai/display-space.sh select-display 4
-display < 5 : sh ~/.config/yabai/display-space.sh select-display 5
-display < 6 : sh ~/.config/yabai/display-space.sh select-display 6
-display < 7 : sh ~/.config/yabai/display-space.sh select-display 7
-display < 8 : sh ~/.config/yabai/display-space.sh select-display 8
-display < 9 : sh ~/.config/yabai/display-space.sh select-display 9
+display < 1 : sh ~/.config/yabai/lib/display-space.sh focus 1
+display < 2 : sh ~/.config/yabai/lib/display-space.sh focus 2
+display < 3 : sh ~/.config/yabai/lib/display-space.sh focus 3
+display < 4 : sh ~/.config/yabai/lib/display-space.sh focus 4
+display < 5 : sh ~/.config/yabai/lib/display-space.sh focus 5
+display < 6 : sh ~/.config/yabai/lib/display-space.sh focus 6
+display < 7 : sh ~/.config/yabai/lib/display-space.sh focus 7
+display < 8 : sh ~/.config/yabai/lib/display-space.sh focus 8
+display < 9 : sh ~/.config/yabai/lib/display-space.sh focus 9
+display < 0 : sh ~/.config/yabai/lib/display-space.sh focus 10
 
-display < shift - 1 : sh ~/.config/yabai/display-space.sh move-window-display 1
-display < shift - 2 : sh ~/.config/yabai/display-space.sh move-window-display 2
-display < shift - 3 : sh ~/.config/yabai/display-space.sh move-window-display 3
-display < shift - 4 : sh ~/.config/yabai/display-space.sh move-window-display 4
-display < shift - 5 : sh ~/.config/yabai/display-space.sh move-window-display 5
-display < shift - 6 : sh ~/.config/yabai/display-space.sh move-window-display 6
-display < shift - 7 : sh ~/.config/yabai/display-space.sh move-window-display 7
-display < shift - 8 : sh ~/.config/yabai/display-space.sh move-window-display 8
-display < shift - 9 : sh ~/.config/yabai/display-space.sh move-window-display 9
-
-display < alt - 1 : sh ~/.config/yabai/display-space.sh focus 1
-display < alt - 2 : sh ~/.config/yabai/display-space.sh focus 2
-display < alt - 3 : sh ~/.config/yabai/display-space.sh focus 3
-display < alt - 4 : sh ~/.config/yabai/display-space.sh focus 4
-display < alt - 5 : sh ~/.config/yabai/display-space.sh focus 5
-display < alt - 6 : sh ~/.config/yabai/display-space.sh focus 6
-display < alt - 7 : sh ~/.config/yabai/display-space.sh focus 7
-display < alt - 8 : sh ~/.config/yabai/display-space.sh focus 8
-display < alt - 9 : sh ~/.config/yabai/display-space.sh focus 9
-display < alt - 0 : sh ~/.config/yabai/display-space.sh focus 10
-
-display < shift + alt - 1 : sh ~/.config/yabai/display-space.sh move-window 1
-display < shift + alt - 2 : sh ~/.config/yabai/display-space.sh move-window 2
-display < shift + alt - 3 : sh ~/.config/yabai/display-space.sh move-window 3
-display < shift + alt - 4 : sh ~/.config/yabai/display-space.sh move-window 4
-display < shift + alt - 5 : sh ~/.config/yabai/display-space.sh move-window 5
-display < shift + alt - 6 : sh ~/.config/yabai/display-space.sh move-window 6
-display < shift + alt - 7 : sh ~/.config/yabai/display-space.sh move-window 7
-display < shift + alt - 8 : sh ~/.config/yabai/display-space.sh move-window 8
-display < shift + alt - 9 : sh ~/.config/yabai/display-space.sh move-window 9
-display < shift + alt - 0 : sh ~/.config/yabai/display-space.sh move-window 10
+display < shift - 1 : sh ~/.config/yabai/lib/display-space.sh move-window 1
+display < shift - 2 : sh ~/.config/yabai/lib/display-space.sh move-window 2
+display < shift - 3 : sh ~/.config/yabai/lib/display-space.sh move-window 3
+display < shift - 4 : sh ~/.config/yabai/lib/display-space.sh move-window 4
+display < shift - 5 : sh ~/.config/yabai/lib/display-space.sh move-window 5
+display < shift - 6 : sh ~/.config/yabai/lib/display-space.sh move-window 6
+display < shift - 7 : sh ~/.config/yabai/lib/display-space.sh move-window 7
+display < shift - 8 : sh ~/.config/yabai/lib/display-space.sh move-window 8
+display < shift - 9 : sh ~/.config/yabai/lib/display-space.sh move-window 9
+display < shift - 0 : sh ~/.config/yabai/lib/display-space.sh move-window 10
 
 display < escape ; default

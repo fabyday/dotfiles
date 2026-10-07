@@ -38,52 +38,68 @@ yabai -m config external_bar main:0:0
 # Keep each connected display provisioned with 10 Mission Control spaces.
 # This runs only on startup/display changes, so it avoids the layout feedback
 # loops caused by high-frequency window movement signals.
-YABAI_ENSURE_SPACES="$HOME/.config/yabai/ensure-display-spaces.sh"
+YABAI_ENSURE_SPACES="$HOME/.config/yabai/lib/ensure-display-spaces.sh"
 sh "$YABAI_ENSURE_SPACES"
 
-# space 1: terminals
-yabai -m rule --add app="iTerm2" space=^d1s1
-yabai -m rule --add app="kitty" space=^d1s1
 
-# space 2: rider development
-yabai -m rule --add app="Visual Studio Code.*" space=^d1s2
-yabai -m rule --add app="Visual Studio Code.*" title="Preferences" space=^d1s2 manage=off
+
+# space 1: terminals
+yabai -m rule --add app="iTerm2" space=d1s1
+yabai -m rule --add app="kitty" space=d1s1
+
+# space 2: vscode development
+yabai -m rule --add app="^Code$" space=d1s2
+yabai -m rule --add app="^Code$" title="Preferences" space=d1s2 manage=off
 
 # space 3: web
-yabai -m rule --add app="Google Chrome" space=^d1s3
+yabai -m rule --add app="Google Chrome" space=d1s3
 
-# space 4: VMs
-yabai -m space d1s4 --layout stack
-yabai -m rule --add app="Jump Desktop" space=^d1s4
-yabai -m rule --add app="Jump Desktop" title="Jump Desktop" space=^d1s4 manage=off
-yabai -m rule --add app="Parallels Desktop" title="Control Center" space=^d1s4 manage=off
-yabai -m rule --add app="Parallels Desktop" space=^d1s4
+# space 4: GameON
+
+
 
 # space 5: stack
 yabai -m space d1s5 --layout stack
+yabai -m rule --add \
+    app="^BDIH Launcher$" \
+    space=d1s10 \
+    manage=off \
 
 # display 2 slot 4: off-stream and out of the way
-yabai -m rule --add app="Discord" space=^d2s4 manage=off
-yabai -m rule --add app="Music" space=^d2s4
-yabai -m rule --add app="OBS Studio" space=^d2s4
-yabai -m rule --add app="OBS.*" space=^d2s4
-yabai -m rule --add app="Podcasts" space=^d2s4
+yabai -m rule --add app="^Discord$" title="^Discord Updater$" space=d1s4
+yabai -m rule --add app="^Discord$" title=".*Discord.*" space=d1s4
+
+
+
+yabai -m rule --add app="OBS Studio" space=d2s4
+yabai -m rule --add app="OBS.*" space=d2s4
+yabai -m rule --add app="Podcasts" space=d2s4
+yabai -m rule --add app="Kawaikara.*" manage=off
+
+
+
+####################################################################
+# FULL SCREEN APPS SECTION
+####################################################################
+
+# Fullscreen Apps(Examples : Games)
+# yabai -m  NTE
+# this exe App, will be wine Program.
+yabai -m rule --add app=".*\\.exe$" manage=off
+
+
 
 # things which create floating children
-
 yabai -m rule --add app="System Settings" manage=off
 yabai -m rule --add app="BDIH Launcher*" manage=off
-yabai -m rule --add app="Stats" manage=off mouse_follows_focus=off
-yabai -m rule --add app="iStat Menus" manage=off mouse_follows_focus=off
-yabai -m rule --add app="Things" grid=10:3:1:1:1:8 mouse_follows_focus=on sticky=on
-yabai -m rule --add app="choose" manage=off mouse_follows_focus=off
-yabai -m rule --add app="CleanShot X" manage=off mouse_follows_focus=off
+yabai -m rule --add app="Elgato Wave Link" manage=off
+
 
 # sketchbar
-# yabai -m config external_bar all:40:0
-# yabia -m config menubar_opacity 0.0 # disable menubar
-# this is borders
-borders active_color=0xff00ff00  width=10.0 &
+
+
+# Border Options
+borders active_color=0xff00ff00  width=9.0 &
 
 # Show stack indicators through Hammerspoon stackline when available.
 if command -v hs >/dev/null 2>&1; then
@@ -93,24 +109,41 @@ fi
 # Automatic window-moving signals are intentionally conservative. New windows
 # are stacked only once, and only into the previously focused window on the same
 # display and space. Other helpers stay manual to avoid layout feedback loops.
-YABAI_AUTO_STACK="$HOME/.config/yabai/auto-stack-window.sh"
-SKHD_FOCUS_GUARD="$HOME/.config/yabai/skhd-focus-guard.sh"
+YABAI_AUTO_STACK="$HOME/.config/yabai/lib/auto-stack-window.sh"
+sh "$YABAI_AUTO_STACK" save-focus
+SKHD_FOCUS_GUARD="$HOME/.config/yabai/lib/skhd-focus-guard.sh"
+SKHD_RELOAD="$HOME/.config/skhd/lib/reload.sh"
+SKETCHYBAR_UPDATE="$HOME/.config/sketchybar/lib/update_spaces.sh"
+SPACE_HISTORY="$HOME/.config/yabai/lib/space-history.sh"
+sh "$SPACE_HISTORY" seed
 
 yabai -m signal --remove yabai_auto_stack_focus >/dev/null 2>&1 || true
 yabai -m signal --remove yabai_auto_stack_created >/dev/null 2>&1 || true
 yabai -m signal --remove yabai_skhd_focus_guard >/dev/null 2>&1 || true
 yabai -m signal --remove yabai_skhd_focus_guard_space >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_skhd_mode_app_switch >/dev/null 2>&1 || true
 yabai -m signal --remove yabai_ensure_display_spaces_added >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_ensure_display_spaces_removed >/dev/null 2>&1 || true
 yabai -m signal --remove yabai_ensure_display_spaces_changed >/dev/null 2>&1 || true
 yabai -m signal --remove yabai_ensure_display_spaces_woke >/dev/null 2>&1 || true
+yabai -m signal --remove yabai_space_history >/dev/null 2>&1 || true
 
 yabai -m signal --add label=yabai_auto_stack_focus event=window_focused action="sh $YABAI_AUTO_STACK save-focus"
 yabai -m signal --add label=yabai_auto_stack_created event=window_created action="sh $YABAI_AUTO_STACK stack-new"
 yabai -m signal --add label=yabai_skhd_focus_guard event=window_focused action="sh $SKHD_FOCUS_GUARD"
 yabai -m signal --add label=yabai_skhd_focus_guard_space event=space_changed action="sh $SKHD_FOCUS_GUARD"
+yabai -m signal --add label=yabai_skhd_mode_app_switch event=application_front_switched action="sh $SKHD_RELOAD --on-app-switch"
 yabai -m signal --add label=yabai_ensure_display_spaces_added event=display_added action="sh $YABAI_ENSURE_SPACES"
-yabai -m signal --add label=yabai_ensure_display_spaces_changed event=display_changed action="sh $YABAI_ENSURE_SPACES"
+yabai -m signal --add label=yabai_ensure_display_spaces_removed event=display_removed action="sh $YABAI_ENSURE_SPACES"
 yabai -m signal --add label=yabai_ensure_display_spaces_woke event=system_woke action="sh $YABAI_ENSURE_SPACES"
+yabai -m signal --add label=yabai_space_history event=space_changed action="sh $SPACE_HISTORY record \$YABAI_SPACE_INDEX"
+
+yabai -m signal --remove yabai_sketchybar_window_moved >/dev/null 2>&1 || true
+for event in window_created window_destroyed space_changed display_added display_removed display_changed; do
+    label="yabai_sketchybar_$event"
+    yabai -m signal --remove "$label" >/dev/null 2>&1 || true
+    yabai -m signal --add label="$label" event="$event" action="sh $SKETCHYBAR_UPDATE"
+done
 
 yabai -m signal --remove yabai_fit_window_created >/dev/null 2>&1 || true
 yabai -m signal --remove yabai_fit_window_resized >/dev/null 2>&1 || true

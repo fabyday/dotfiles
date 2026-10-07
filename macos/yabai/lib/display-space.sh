@@ -5,6 +5,7 @@ command="${1:-}"
 argument="${2:-}"
 STATE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/yabai"
 TARGET_DISPLAY_FILE="$STATE_DIR/target-display"
+HISTORY_SCRIPT="$HOME/.config/yabai/lib/space-history.sh"
 
 mkdir -p "$STATE_DIR"
 
@@ -23,6 +24,10 @@ focused_display() {
 
     if [ -z "$display" ]; then
         display="$(yabai -m query --windows --window 2>/dev/null | jq -r '.display // empty' || true)"
+    fi
+
+    if [ -z "$display" ]; then
+        display="$(yabai -m query --displays 2>/dev/null | jq -r '.[0].index // empty' || true)"
     fi
 
     printf '%s\n' "$display"
@@ -53,13 +58,18 @@ resolve_display() {
     current="$(target_display)"
 
     case "$requested" in
+        current)
+            focused_display
+            ;;
         prev|next)
             yabai -m query --displays 2>/dev/null |
                 jq -r --arg current "$current" --arg direction "$requested" '
                     ([.[].index] | sort) as $displays
                     | ($current | tonumber?) as $current_display
                     | ($displays | index($current_display)) as $idx
-                    | if ($idx == null) then
+                    | if ($displays | length) == 0 then
+                        empty
+                      elif ($idx == null) then
                         $displays[0]
                       elif $direction == "next" then
                         $displays[(($idx + 1) % ($displays | length))]
@@ -88,9 +98,13 @@ move_window_to_display() {
     [ -n "$display" ] || exit 0
     display_exists "$display" || exit 0
 
-    window="$(yabai -m query --windows --window 2>/dev/null | jq -r '.id // empty' || true)"
+    window_json="$(yabai -m query --windows --window 2>/dev/null || true)"
+    window="$(printf '%s\n' "$window_json" | jq -r '.id // empty' || true)"
+    window_display="$(printf '%s\n' "$window_json" | jq -r '.display // empty' || true)"
     printf '%s\n' "$display" > "$TARGET_DISPLAY_FILE"
-    yabai -m window --display "$display" >/dev/null 2>&1 || true
+    if [ "$window_display" != "$display" ]; then
+        yabai -m window --display "$display" >/dev/null 2>&1 || true
+    fi
     if [ -n "$window" ]; then
         yabai -m window --focus "$window" >/dev/null 2>&1 || true
     fi
@@ -102,8 +116,10 @@ space_for_slot() {
     slot="$2"
 
     yabai -m query --spaces 2>/dev/null |
-        jq -r --argjson display "$display" --argjson slot "$slot" '
-            [.[] | select(.display == $display) | .index] | sort | .[$slot - 1] // empty
+        jq -r --argjson display "$display" --argjson slot "$slot" \
+            --arg label "d${display}s${slot}" '
+            ([.[] | select(.display == $display and .label == $label)] | first | .index) //
+            ([.[] | select(.display == $display) | .index] | sort | .[$slot - 1]) // empty
         '
 }
 
@@ -158,6 +174,7 @@ focus_or_show_space() {
     if [ -n "$window" ]; then
         yabai -m window --focus "$window" >/dev/null 2>&1 || true
     fi
+    sh "$HISTORY_SCRIPT" record "$space" >/dev/null 2>&1 || true
 }
 
 case "$command" in
@@ -186,6 +203,7 @@ case "$command" in
         yabai -m window --space "$space" >/dev/null 2>&1 || true
         if [ -n "$window" ]; then
             yabai -m window --focus "$window" >/dev/null 2>&1 || true
+            sh "$HISTORY_SCRIPT" record "$space" >/dev/null 2>&1 || true
         else
             focus_or_show_space "$display" "$space"
         fi
@@ -211,6 +229,7 @@ case "$command" in
         yabai -m window --space "$space" >/dev/null 2>&1 || true
         if [ -n "$window" ]; then
             yabai -m window --focus "$window" >/dev/null 2>&1 || true
+            sh "$HISTORY_SCRIPT" record "$space" >/dev/null 2>&1 || true
         else
             focus_or_show_space "$display" "$space"
         fi

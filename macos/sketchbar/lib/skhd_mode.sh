@@ -27,6 +27,16 @@ case "$mode" in
         color="0xfffcd34d"
         background="0x557c2d12"
         ;;
+    relocate)
+        label="RELOCATE"
+        color="0xff86efac"
+        background="0x55166534"
+        ;;
+    paused)
+        label="PAUSED"
+        color="0xfffca5a5"
+        background="0x557f1d1d"
+        ;;
     layout)
         label="LAYOUT"
         color="0xff86efac"

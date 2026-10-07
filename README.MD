@@ -29,6 +29,7 @@ nvim
 - `macos/zsh/.zshrc` -> `~/.zshrc`
 - `macos/yabai/.yabairc` -> `~/.yabairc`
 - `macos/skhd/.skhdrc` -> `~/.skhdrc`
+- `macos/skhd` -> `~/.config/skhd`
 - `macos/sketchbar` -> `~/.config/sketchybar`
 - `macos/hammerspoon` -> `~/.hammerspoon`
 

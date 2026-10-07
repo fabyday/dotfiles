@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-STATE_SCRIPT="${HOME}/.config/yabai/state.sh"
+STATE_SCRIPT="${HOME}/.config/yabai/lib/state.sh"
 MODE="${1:-restore}"
 LOCK_DIR="${TMPDIR:-/tmp}/yabai-refresh-${MODE}.lock"
 

@@ -2,7 +2,7 @@
 set -eu
 
 CONFIG_DIR="${HOME}/.config/yabai"
-STATE_SCRIPT="$CONFIG_DIR/state.sh"
+STATE_SCRIPT="$CONFIG_DIR/lib/state.sh"
 
 if [ -x "$STATE_SCRIPT" ]; then
     "$STATE_SCRIPT" save >/dev/null 2>&1 || true
