@@ -83,7 +83,7 @@ while [ "$display" -le "$MAX_DISPLAYS" ]; do
         --set "display.$display" \
             icon="D$display" \
             display="$display" \
-            click_script="yabai -m display --focus $display" \
+            click_script="sh ~/.config/yabai/lib/display-space.sh select-display $display" \
             label.drawing=off \
             drawing=off \
             icon.color=0xffe5e7eb \

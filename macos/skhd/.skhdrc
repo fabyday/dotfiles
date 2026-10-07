@@ -97,6 +97,7 @@ window < alt - h : yabai -m window --stack west
 window < alt - j : yabai -m window --stack south
 window < alt - k : yabai -m window --stack north
 window < alt - l : yabai -m window --stack east
+window < e : sh ~/.config/yabai/lib/unstack-window.sh east
 
 window < a : yabai -m window --move rel:-20:0
 window < s : yabai -m window --move rel:0:20
@@ -110,11 +111,10 @@ window < p : yabai -m window --toggle pip
 window < t : yabai -m window --toggle sticky
 window < x : yabai -m window --toggle shadow
 window < 0 : yabai -m space --balance
-window < 2 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.2
-window < 3 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.3
-window < 5 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.5
-window < 7 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.7
-window < 8 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.8
+window < 1 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.5
+window < 2 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.6
+window < 3 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.7
+window < 4 : sh ~/.config/yabai/lib/root-split-ratio.sh 0.8
 window < escape ; default
 
 # display mode: focus spaces/displays or send windows there

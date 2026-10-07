@@ -74,7 +74,7 @@ yabai -m rule --add app="^Discord$" title=".*Discord.*" space=d1s4
 yabai -m rule --add app="OBS Studio" space=d2s4
 yabai -m rule --add app="OBS.*" space=d2s4
 yabai -m rule --add app="Podcasts" space=d2s4
-yabai -m rule --add app="Kawaikara.*" manage=off
+yabai -m rule --add app="^(Electron|Kawaikara.*)$" manage=off
 
 
 
@@ -103,7 +103,7 @@ borders active_color=0xff00ff00  width=9.0 &
 
 # Show stack indicators through Hammerspoon stackline when available.
 if command -v hs >/dev/null 2>&1; then
-    hs -c 'if stackline then stackline.config:set("appearance.showIcons", true); stackline.applyYabaiPadding() end' >/dev/null 2>&1 || true
+    hs -c 'if stackline then stackline.config:set("appearance.showIcons", true); stackline.applyYabaiPadding(true) end' >/dev/null 2>&1 || true
 fi
 
 # Automatic window-moving signals are intentionally conservative. New windows

@@ -48,46 +48,23 @@ function stackline:indicatorWidth() -- {{{
     return c.showIcons and c.size or (c.size / c.pillThinness)
 end -- }}}
 
-local function runYabai(args) -- {{{
-    local user = os.getenv('USER') or 'yabai'
-    local path = os.getenv('PATH') or '/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin'
-    local yabai = stackline.config:get('paths.yabai')
-
-    local taskArgs = {
-        'USER=' .. user,
-        'PATH=' .. path,
-        yabai,
-    }
-
-    for _, arg in ipairs(args) do
-        table.insert(taskArgs, tostring(arg))
-    end
-
-    hs.task.new('/usr/bin/env', nil, taskArgs):start()
-end -- }}}
-
-function stackline.applyYabaiPadding() -- {{{
+function stackline.applyYabaiPadding(force) -- {{{
     local c = stackline.config:get('appearance')
     local padding = c.padding
 
     if not padding or not padding.enabled then return end
 
-    local hasStacks = stackline.manager and stackline.manager:getSummary().numStacks > 0
     local width = stackline:indicatorWidth()
     local gutter = math.ceil(padding.base + c.offset.x + width + padding.extra)
-    local left = padding.base
-    local right = padding.base
-
-    if hasStacks and (padding.sides == 'left' or padding.sides == 'both') then
-        left = gutter
-    end
-
-    if hasStacks and (padding.sides == 'right' or padding.sides == 'both') then
-        right = gutter
-    end
-
-    runYabai({'-m', 'config', 'left_padding', left})
-    runYabai({'-m', 'config', 'right_padding', right})
+    local helper = os.getenv('HOME') .. '/.config/yabai/lib/stackline-padding.sh'
+    hs.task.new('/bin/sh', nil, {
+        helper,
+        tostring(padding.base),
+        tostring(gutter),
+        stackline.config:get('paths.yabai'),
+        padding.sides,
+        force and '--force' or 'sync',
+    }):start()
 end -- }}}
 
 stackline.wf = wf.new():setOverrideFilter{ -- {{{

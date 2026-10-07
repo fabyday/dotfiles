@@ -3,4 +3,4 @@ hs.allowAppleScript(true)
 
 stackline = require "stackline"
 stackline:init()
-stackline.applyYabaiPadding()
+stackline.applyYabaiPadding(true)

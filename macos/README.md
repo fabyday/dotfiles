@@ -87,8 +87,9 @@ If `hs` is not available, install the command-line tool from Hammerspoon:
 Hammerspoon -> Install Command Line Tool
 ```
 
-The Hammerspoon config loads `stackline` and applies dynamic left padding only
-when a real yabai stack exists.
+The Hammerspoon config loads `stackline`. Its helper keeps the normal 8px side
+padding and reserves the larger indicator gutter only on BSP Spaces with a real
+yabai stack. Other displays and Spaces keep the normal padding.
 
 ## yabai
 
@@ -129,11 +130,14 @@ matching a rule are left alone so their rule can move them without triggering a
 repeated layout change. Windows already present before the signal is registered
 are not retroactively stacked.
 
-On startup, display changes, and wake, `yabai/lib/ensure-display-spaces.sh` ensures
-that every connected display has 10 Mission Control spaces. Labels such as
-`d2s4` identify display 2 slot 4 even when macOS changes space indexes. When a
-display disconnects, its labelled spaces may move to another display; they are
-returned to their labelled display when it reconnects.
+On startup, display changes, and wake, `yabai/lib/ensure-display-labels.sh`
+assigns each display UUID a persistent logical label such as `d2`, stored in
+`~/.local/state/yabai/display-uuids.json`. `ensure-display-spaces.sh` keeps 10
+Mission Control spaces per connected display, labelled `d2s1` through `d2s10`.
+The display and Space labels survive index changes. When a display disconnects,
+its occupied Spaces can appear on another display; they return to their UUID
+matched display when it reconnects. Display mode uses these labels for Space
+navigation, and Window mode `e` splits the focused window out of a BSP stack.
 
 
 ### checking help script command
@@ -186,9 +190,15 @@ the left of the skhd mode indicator.
 In display mode, `h`/`l` select the previous/next connected display. `j`/`k`
 move backward/forward through that display's workspace history. Each display
 keeps its own last 10 visits, including repeated visits to the same space.
+Entering Display mode starts from the display under the pointer, so a display
+without any app windows can still be selected. After selection, its logical
+display label remains the target while browsing empty Spaces.
 For example, after `1 → 3 → 4 → 2 → 1`, going back to `4` and choosing `5`
 changes the history to `1 → 3 → 4 → 5`. `1`-`0` focus slots 1-10 on the selected
-display, and `shift + 1`-`0` move the focused window there. `shift + h`/`l`
+display, and `shift + 1`-`0` move the focused window there. `0` and `shift + 0`
+target slot 10 even when that Space is empty. The selected display remains the
+target while Display mode is active, and SketchyBar highlights its visible Space.
+`shift + h`/`l`
 move the window to the previous/next display. If a display disconnects, the
 selection falls back to the remaining display. `escape` returns to normal mode,
 and `cmd + alt + escape`
@@ -292,8 +302,11 @@ from the `yabai/lib` and `sketchbar/lib` directories.
 - `yabai/.yabairc`: main yabai config
 - `yabai/lib/skhd-focus-guard.sh`: pauses skhd while fullscreen-like windows are focused
 - `yabai/lib/ensure-display-spaces.sh`: maintains labelled spaces and returns them after reconnect
+- `yabai/lib/ensure-display-labels.sh`: persists UUID to logical display labels
 - `yabai/lib/display-space.sh`: maps slot 1-10 to spaces on the selected target display
 - `yabai/lib/space-history.sh`: keeps ten workspace visits per display
+- `yabai/lib/unstack-window.sh`: splits a focused window out of its BSP stack
+- `yabai/lib/stackline-padding.sh`: scopes Stackline's gutter to Spaces with stacks
 - `yabai/lib/auto-stack-window.sh`: stacks new windows without matching rules
 - `yabai/lib/fit-windows.sh`: manual/experimental helper for fitting windows into displays
 - `yabai/lib/state.sh`, `yabai/lib/refresh.sh`, `yabai/lib/reload.sh`: manual/experimental state helpers

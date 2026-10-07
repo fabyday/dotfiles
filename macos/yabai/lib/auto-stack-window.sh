@@ -35,19 +35,6 @@ save_focus() {
     fi
     printf '%s\n' "$window_id" > "$global_current"
 
-    current_file="$STATE_DIR/focused-window-display-$display-space-$space"
-    previous_file="$STATE_DIR/previous-window-display-$display-space-$space"
-    old_window=""
-
-    if [ -f "$current_file" ]; then
-        old_window="$(cat "$current_file")"
-    fi
-
-    if [ -n "$old_window" ] && [ "$old_window" != "$window_id" ]; then
-        printf '%s\n' "$old_window" > "$previous_file"
-    fi
-
-    printf '%s\n' "$window_id" > "$current_file"
 }
 
 stack_new_window() {

@@ -14,11 +14,19 @@ command="${1:-}"
 requested="${2:-}"
 
 spaces_json="$(yabai -m query --spaces 2>/dev/null)" || exit 0
+selected_label="$(cat "$STATE_DIR/target-display" 2>/dev/null || true)"
+selected_display="$(yabai -m query --displays 2>/dev/null |
+    jq -r --arg label "$selected_label" '[.[] | select(.label == $label) | .index] | first // "null"')"
 
 find_space() {
-    printf '%s\n' "$spaces_json" | jq -c --arg requested "$1" '
+    printf '%s\n' "$spaces_json" | jq -c --arg requested "$1" --argjson selected_display "$selected_display" '
         (try ($requested | tonumber) catch null) as $index
-        | [.[] | select(if $index == null then ."has-focus" == true else .index == $index end)]
+        | [.[] | select(if $requested == "" then
+                           (if $selected_display != null then
+                               .display == $selected_display and ."is-visible" == true
+                            else ."has-focus" == true end)
+                       elif $index != null then .index == $index
+                       else .label == $requested end)]
         | first // empty
     '
 }
@@ -39,18 +47,21 @@ write_state() {
 
 select_history() {
     space_json="$1"
-    key="$(printf '%s\n' "$space_json" | jq -r 'if (.label // "") != "" then .label else "id:" + (.id | tostring) end')"
+    key="$(printf '%s\n' "$space_json" | jq -r '.label // empty')"
     group="$(printf '%s\n' "$space_json" | jq -r '
-        if ((.label // "") | test("^d[0-9]+s[0-9]+$"))
-        then (.label | capture("^d(?<display>[0-9]+)s").display)
-        else (.display | tostring) end
+        (.label // "") | capture("^(?<display>d[0-9]+)s[0-9]+$").display // empty
     ')"
+    [ -n "$group" ] || return 1
     state_file="$STATE_DIR/space-history-display-$group.json"
+    legacy_file="$STATE_DIR/space-history-display-${group#d}.json"
+    if [ ! -f "$state_file" ] && [ -f "$legacy_file" ]; then
+        cp "$legacy_file" "$state_file"
+    fi
 }
 
 record_space() {
     [ -n "$1" ] || return 0
-    select_history "$1"
+    select_history "$1" || return 0
     state_json="$(load_state)"
     updated="$(printf '%s\n' "$state_json" | jq -c --arg key "$key" --argjson limit "$LIMIT" '
         (.entries // []) as $entries
@@ -85,7 +96,7 @@ VISIBLE
         current="$(find_space "")"
         [ -n "$current" ] || exit 0
         record_space "$current"
-        select_history "$current"
+        select_history "$current" || exit 0
         state_json="$(load_state)"
         cursor="$(printf '%s\n' "$state_json" | jq -r '.cursor')"
         length="$(printf '%s\n' "$state_json" | jq -r '.entries | length')"
@@ -93,14 +104,10 @@ VISIBLE
         candidate=$((cursor + step))
         while [ "$candidate" -ge 0 ] && [ "$candidate" -lt "$length" ]; do
             candidate_key="$(printf '%s\n' "$state_json" | jq -r --argjson cursor "$candidate" '.entries[$cursor]')"
-            target="$(printf '%s\n' "$spaces_json" | jq -r --arg key "$candidate_key" '
-                [.[] | select(.label == $key or ("id:" + (.id | tostring)) == $key)]
-                | first | .index // empty
-            ')"
-            if [ -n "$target" ]; then
+            if printf '%s\n' "$spaces_json" | jq -e --arg key "$candidate_key" 'any(.[]; .label == $key)' >/dev/null; then
                 updated="$(printf '%s\n' "$state_json" | jq -c --argjson cursor "$candidate" '.cursor = $cursor')"
                 write_state "$updated"
-                if ! yabai -m space --focus "$target" >/dev/null 2>&1; then
+                if ! yabai -m space --focus "$candidate_key" >/dev/null 2>&1; then
                     write_state "$state_json"
                 fi
                 exit 0

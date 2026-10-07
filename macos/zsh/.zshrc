@@ -153,7 +153,7 @@ set -o vi
 
 # TMUX TERM
 if [[ "$TERM_PROGRAM" != "vscode" ]] && [[ -z "$TMUX" ]]; then
-	exec tmux new-session -A -s main
+	tmux new-session -A -s main
 fi 
 
 #alias config='git --git-dir=$HOME/.myconf --working-tree=$HOME'

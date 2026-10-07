@@ -19,8 +19,15 @@ case "$command" in
 esac
 
 focused_display() {
-    display="$(yabai -m query --displays 2>/dev/null |
-        jq -r '.[] | select(."has-focus" == true) | .index // empty')"
+    # The pointer remains on an empty display after yabai focuses it, while
+    # macOS may keep the last app window on another display as key window.
+    display="$(yabai -m query --displays --display mouse 2>/dev/null |
+        jq -r '.index // empty' || true)"
+
+    if [ -z "$display" ]; then
+        display="$(yabai -m query --displays 2>/dev/null |
+            jq -r '.[] | select(."has-focus" == true) | .index // empty' || true)"
+    fi
 
     if [ -z "$display" ]; then
         display="$(yabai -m query --windows --window 2>/dev/null | jq -r '.display // empty' || true)"
@@ -40,10 +47,13 @@ display_exists() {
 }
 
 target_display() {
+    # Display mode keeps its selected logical display even when focusing an
+    # empty Space leaves macOS reporting another display as focused.
     display=""
-
     if [ -f "$TARGET_DISPLAY_FILE" ]; then
-        display="$(cat "$TARGET_DISPLAY_FILE")"
+        saved_label="$(cat "$TARGET_DISPLAY_FILE")"
+        display="$(yabai -m query --displays 2>/dev/null |
+            jq -r --arg label "$saved_label" '.[] | select(.label == $label) | .index // empty')"
     fi
 
     if [ -z "$display" ] || ! display_exists "$display"; then
@@ -79,7 +89,8 @@ resolve_display() {
                 '
             ;;
         *)
-            printf '%s\n' "$requested"
+            yabai -m query --displays 2>/dev/null |
+                jq -r --arg label "d$requested" '.[] | select(.label == $label) | .index // empty'
             ;;
     esac
 }
@@ -89,8 +100,9 @@ select_display() {
     [ -n "$display" ] || exit 0
     display_exists "$display" || exit 0
 
-    printf '%s\n' "$display" > "$TARGET_DISPLAY_FILE"
-    yabai -m display --focus "$display" >/dev/null 2>&1 || true
+    display_label="$(yabai -m query --displays | jq -r --argjson index "$display" '.[] | select(.index == $index) | .label')"
+    printf '%s\n' "$display_label" > "$TARGET_DISPLAY_FILE"
+    yabai -m display --focus "$display_label" >/dev/null 2>&1 || true
 }
 
 move_window_to_display() {
@@ -101,25 +113,31 @@ move_window_to_display() {
     window_json="$(yabai -m query --windows --window 2>/dev/null || true)"
     window="$(printf '%s\n' "$window_json" | jq -r '.id // empty' || true)"
     window_display="$(printf '%s\n' "$window_json" | jq -r '.display // empty' || true)"
-    printf '%s\n' "$display" > "$TARGET_DISPLAY_FILE"
-    if [ "$window_display" != "$display" ]; then
-        yabai -m window --display "$display" >/dev/null 2>&1 || true
+    display_label="$(yabai -m query --displays | jq -r --argjson index "$display" '.[] | select(.index == $index) | .label')"
+    if [ -z "$window" ]; then
+        printf 'no focused window to move\n' >&2
+        return 1
     fi
+    if [ "$window_display" != "$display" ]; then
+        yabai -m window "$window" --display "$display_label"
+    fi
+    printf '%s\n' "$display_label" > "$TARGET_DISPLAY_FILE"
     if [ -n "$window" ]; then
         yabai -m window --focus "$window" >/dev/null 2>&1 || true
     fi
-    yabai -m display --focus "$display" >/dev/null 2>&1 || true
+    yabai -m display --focus "$display_label" >/dev/null 2>&1 || true
 }
 
 space_for_slot() {
     display="$1"
     slot="$2"
+    display_label="$(yabai -m query --displays 2>/dev/null |
+        jq -r --argjson index "$display" '.[] | select(.index == $index) | .label')"
+    [ -n "$display_label" ] || return 0
 
     yabai -m query --spaces 2>/dev/null |
-        jq -r --argjson display "$display" --argjson slot "$slot" \
-            --arg label "d${display}s${slot}" '
-            ([.[] | select(.display == $display and .label == $label)] | first | .index) //
-            ([.[] | select(.display == $display) | .index] | sort | .[$slot - 1]) // empty
+        jq -r --arg label "${display_label}s${slot}" '
+            [.[] | select(.label == $label)] | first | .label // empty
         '
 }
 
@@ -141,39 +159,32 @@ normalize_slot() {
     printf '%s\n' "$slot"
 }
 
-first_window_in_space() {
-    space="$1"
-
-    yabai -m query --windows 2>/dev/null |
-        jq -r --argjson space "$space" '
-            [
-                .[]
-                | select(.space == $space)
-                | select(."is-minimized" == false)
-                | select(."is-hidden" == false)
-            ]
-            | sort_by([(."has-focus" | not), .id])
-            | .[0].id // empty
-        '
-}
-
-show_space_on_display() {
-    display="$1"
-    space="$2"
-
-    yabai -m display "$display" --space "$space" >/dev/null 2>&1 || true
-}
-
 focus_or_show_space() {
     display="$1"
     space="$2"
 
-    show_space_on_display "$display" "$space"
-
-    window="$(first_window_in_space "$space")"
-    if [ -n "$window" ]; then
-        yabai -m window --focus "$window" >/dev/null 2>&1 || true
+    # A Space can have no focusable window. Focusing an arbitrary window after
+    # switching may bring its app's previous Space back into view.
+    if ! yabai -m space --focus "$space" >/dev/null 2>&1; then
+        visible_space="$(yabai -m query --spaces 2>/dev/null |
+            jq -r --argjson display "$display" '.[] | select(.display == $display and ."is-visible" == true) | .label // empty')"
+        [ "$visible_space" = "$space" ] || return 1
     fi
+
+    sh "$HISTORY_SCRIPT" record "$space" >/dev/null 2>&1 || true
+}
+
+move_focused_window_to_space() {
+    space="$1"
+    window="$(yabai -m query --windows --window | jq -r '.id // empty')"
+    if [ -z "$window" ]; then
+        printf 'no focused window to move\n' >&2
+        return 1
+    fi
+
+    yabai -m window "$window" --space "$space"
+    yabai -m space --focus "$space" >/dev/null 2>&1 || true
+    yabai -m window --focus "$window" >/dev/null 2>&1 || true
     sh "$HISTORY_SCRIPT" record "$space" >/dev/null 2>&1 || true
 }
 
@@ -198,15 +209,7 @@ case "$command" in
         [ -n "$display" ] || exit 0
         space="$(space_for_slot "$display" "$slot")"
         [ -n "$space" ] || exit 0
-        window="$(yabai -m query --windows --window 2>/dev/null | jq -r '.id // empty' || true)"
-        show_space_on_display "$display" "$space"
-        yabai -m window --space "$space" >/dev/null 2>&1 || true
-        if [ -n "$window" ]; then
-            yabai -m window --focus "$window" >/dev/null 2>&1 || true
-            sh "$HISTORY_SCRIPT" record "$space" >/dev/null 2>&1 || true
-        else
-            focus_or_show_space "$display" "$space"
-        fi
+        move_focused_window_to_space "$space"
         ;;
     focus-display)
         display="$(resolve_display "$argument")"
@@ -214,7 +217,7 @@ case "$command" in
         [ -n "$display" ] || exit 0
         space="$(space_for_slot "$display" "$slot")"
         [ -n "$space" ] || exit 0
-        printf '%s\n' "$display" > "$TARGET_DISPLAY_FILE"
+        yabai -m query --displays | jq -r --argjson index "$display" '.[] | select(.index == $index) | .label' > "$TARGET_DISPLAY_FILE"
         focus_or_show_space "$display" "$space"
         ;;
     move-window-to)
@@ -223,15 +226,7 @@ case "$command" in
         [ -n "$display" ] || exit 0
         space="$(space_for_slot "$display" "$slot")"
         [ -n "$space" ] || exit 0
-        window="$(yabai -m query --windows --window 2>/dev/null | jq -r '.id // empty' || true)"
-        printf '%s\n' "$display" > "$TARGET_DISPLAY_FILE"
-        show_space_on_display "$display" "$space"
-        yabai -m window --space "$space" >/dev/null 2>&1 || true
-        if [ -n "$window" ]; then
-            yabai -m window --focus "$window" >/dev/null 2>&1 || true
-            sh "$HISTORY_SCRIPT" record "$space" >/dev/null 2>&1 || true
-        else
-            focus_or_show_space "$display" "$space"
-        fi
+        yabai -m query --displays | jq -r --argjson index "$display" '.[] | select(.index == $index) | .label' > "$TARGET_DISPLAY_FILE"
+        move_focused_window_to_space "$space"
         ;;
 esac
